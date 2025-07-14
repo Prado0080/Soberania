@@ -5,7 +5,7 @@ import random
 import time
 
 # --- CONFIGURAÇÃO ---
-SENHA_VERMELHO = "sua-senha-secreta"  # Mude esta senha!
+SENHA_VERMELHO = "008"  # Mude esta senha!
 ARQUIVO_ESTADO = "game_state.json"
 # --------------------
 

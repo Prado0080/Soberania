@@ -5,7 +5,7 @@ import random
 import time
 
 # --- CONFIGURAÇÃO ---
-SENHA_VERMELHO = "008"  # Mude esta senha!
+SENHA_VERMELHO = "sua-senha-secreta"  # Mude esta senha!
 ARQUIVO_ESTADO = "game_state.json"
 # --------------------
 
@@ -13,14 +13,20 @@ def carregar_estado():
     """Lê o estado do jogo do arquivo JSON. Se não existir, cria um novo."""
     if os.path.exists(ARQUIVO_ESTADO):
         with open(ARQUIVO_ESTADO, 'r') as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return criar_estado_inicial() # Arquivo corrompido ou vazio
     else:
-        # Estado inicial padrão
-        return {
-            "red": {"rolled": False, "dice": []},
-            "blue": {"rolled": False, "dice": []},
-            "revealed": False
-        }
+        return criar_estado_inicial()
+
+def criar_estado_inicial():
+    """Retorna a estrutura de um estado de jogo zerado."""
+    return {
+        "red": {"rolled": False, "dice": []},
+        "blue": {"rolled": False, "dice": []},
+        "revealed": False
+    }
 
 def salvar_estado(estado):
     """Salva o estado atual do jogo no arquivo JSON."""
@@ -29,19 +35,19 @@ def salvar_estado(estado):
 
 def resetar_jogo():
     """Reseta o jogo, limpando o estado e o arquivo."""
-    estado_inicial = {
-        "red": {"rolled": False, "dice": []},
-        "blue": {"rolled": False, "dice": []},
-        "revealed": False
-    }
+    estado_inicial = criar_estado_inicial()
     salvar_estado(estado_inicial)
     # Limpa o estado da sessão para forçar o login novamente
     for key in list(st.session_state.keys()):
         del st.session_state[key]
 
+# --- FUNÇÃO AUXILIAR PARA EXIBIR DADOS ---
+def exibir_dados(dados):
+    """Renderiza os dados em um formato bonito."""
+    dados_html = " ".join([f"<span style='font-size: 2em; display: inline-block; margin: 0 5px;'>{d}</span>" for d in dados])
+    st.markdown(f"<div style='background-color:white; color:black; text-align:center; padding: 10px; border-radius:5px;'>{dados_html}</div>", unsafe_allow_html=True)
 
 # --- INTERFACE DO USUÁRIO (UI) ---
-
 st.set_page_config(page_title="Jogo de Dados Secreto", layout="centered")
 
 # Carrega o estado atual do jogo
@@ -64,7 +70,7 @@ if 'team' not in st.session_state:
 
     with col2:
         st.subheader("Lado Vermelho 🔴")
-        password = st.text_input("Senha do Anfitrião", type="password")
+        password = st.text_input("Senha do Anfitrião", type="password", key="pwd_input")
         if st.button("Entrar como Vermelho"):
             if password == SENHA_VERMELHO:
                 st.session_state.team = 'red'
@@ -77,7 +83,6 @@ else:
     team_color = "🔴" if st.session_state.team == 'red' else "🔵"
     st.header(f"Você está no Lado {st.session_state.team.capitalize()} {team_color}")
     
-    # Botão para atualizar o estado manualmente
     if st.button("🔄 Atualizar Status do Jogo"):
         st.rerun()
 
@@ -85,10 +90,9 @@ else:
     
     # Lado Vermelho
     with col1:
-        st.markdown("<div style='background-color:#8B0000; padding:15px; border-radius:10px; border: 2px solid #FF4136;'>", unsafe_allow_html=True)
+        st.markdown("<div style='background-color:#8B0000; padding:15px; border-radius:10px; border: 2px solid #FF4136; min-height: 250px;'>", unsafe_allow_html=True)
         st.subheader("Lado Vermelho 🔴")
         
-        # Lógica de rolagem
         if not game_state['red']['rolled']:
             if st.session_state.team == 'red':
                 if st.button("Rolar Dados (Vermelho)"):
@@ -98,22 +102,27 @@ else:
                     st.rerun()
             else:
                 st.info("Aguardando o Lado Vermelho rolar...")
-        else:
-            st.success("Dados Rolados! Aguardando revelação.")
+        else: # Se já rolou
+            st.success("Dados Rolados!")
+            # NOVO: Botão para o jogador ver seus próprios dados
+            if st.session_state.team == 'red' and not st.session_state.get('view_my_dice', False):
+                if st.button("Ver meus dados 🔴"):
+                    st.session_state.view_my_dice = True
+                    st.rerun()
 
-        # Exibição dos dados
+        # ATUALIZADO: Lógica de exibição dos dados
         if game_state['revealed']:
-            dados_str = " ".join([f"<span style='font-size: 2em;'>{d}</span>" for d in game_state['red']['dice']])
-            st.markdown(f"<div style='background-color:white; color:black; text-align:center; padding: 10px; border-radius:5px;'>{dados_str}</div>", unsafe_allow_html=True)
+            exibir_dados(game_state['red']['dice'])
+        elif st.session_state.get('team') == 'red' and st.session_state.get('view_my_dice', False):
+            exibir_dados(game_state['red']['dice'])
 
         st.markdown("</div>", unsafe_allow_html=True)
         
     # Lado Azul
     with col2:
-        st.markdown("<div style='background-color:#00008B; padding:15px; border-radius:10px; border: 2px solid #0074D9;'>", unsafe_allow_html=True)
+        st.markdown("<div style='background-color:#00008B; padding:15px; border-radius:10px; border: 2px solid #0074D9; min-height: 250px;'>", unsafe_allow_html=True)
         st.subheader("Lado Azul 🔵")
         
-        # Lógica de rolagem
         if not game_state['blue']['rolled']:
             if st.session_state.team == 'blue':
                 if st.button("Rolar Dados (Azul)"):
@@ -123,13 +132,19 @@ else:
                     st.rerun()
             else:
                 st.info("Aguardando o Lado Azul rolar...")
-        else:
-            st.success("Dados Rolados! Aguardando revelação.")
+        else: # Se já rolou
+            st.success("Dados Rolados!")
+            # NOVO: Botão para o jogador ver seus próprios dados
+            if st.session_state.team == 'blue' and not st.session_state.get('view_my_dice', False):
+                if st.button("Ver meus dados 🔵"):
+                    st.session_state.view_my_dice = True
+                    st.rerun()
 
-        # Exibição dos dados
+        # ATUALIZADO: Lógica de exibição dos dados
         if game_state['revealed']:
-            dados_str = " ".join([f"<span style='font-size: 2em;'>{d}</span>" for d in game_state['blue']['dice']])
-            st.markdown(f"<div style='background-color:white; color:black; text-align:center; padding: 10px; border-radius:5px;'>{dados_str}</div>", unsafe_allow_html=True)
+            exibir_dados(game_state['blue']['dice'])
+        elif st.session_state.get('team') == 'blue' and st.session_state.get('view_my_dice', False):
+            exibir_dados(game_state['blue']['dice'])
             
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -138,14 +153,12 @@ else:
         st.markdown("---")
         st.subheader("Controles do Anfitrião")
         
-        # Botão de Revelar
         ambos_rolaram = game_state['red']['rolled'] and game_state['blue']['rolled']
-        if st.button("REVELAR DADOS PARA TODOS", disabled=not ambos_rolaram):
+        if st.button("REVELAR DADOS PARA TODOS", disabled=not ambos_rolaram or game_state['revealed']):
             game_state['revealed'] = True
             salvar_estado(game_state)
             st.rerun()
 
-        # Botão de Resetar
         if st.button("Resetar Jogo para uma Nova Rodada"):
             resetar_jogo()
             st.rerun()

@@ -4,7 +4,7 @@ import os
 import random
 
 # --- CONFIGURAÇÃO ---
-SENHA_VERMELHO = "sua-senha-secreta"  # Mude esta senha!
+SENHA_VERMELHO = "008"  # Mude esta senha!
 ARQUIVO_ESTADO = "game_state.json"
 # --------------------
 
@@ -44,8 +44,8 @@ def exibir_dados(dados):
     st.markdown(f"<div style='background-color:white; color:black; text-align:center; padding: 10px; border-radius:5px;'>{dados_html}</div>", unsafe_allow_html=True)
 
 # --- LÓGICA PRINCIPAL DO APLICATIVO ---
-st.set_page_config(page_title="Jogo de Dados Secreto", layout="centered")
-st.title("🎲 Jogo de Dados Secreto 🎲")
+st.set_page_config(page_title="Soberania", layout="centered")
+st.title("🎲 Soberania 🎲")
 
 game_state = carregar_estado()
 

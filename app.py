@@ -8,7 +8,6 @@ SENHA_VERMELHO = "sua-senha-secreta"  # Mude esta senha!
 ARQUIVO_ESTADO = "game_state.json"
 # --------------------
 
-# Define a estrutura de um jogo novo/resetado
 def criar_estado_inicial():
     return {
         "red": {
@@ -24,18 +23,16 @@ def criar_estado_inicial():
         "revealed_banks": False
     }
 
-# ATUALIZADO: Carrega o estado e lida com arquivos de versões antigas
 def carregar_estado():
     if os.path.exists(ARQUIVO_ESTADO):
         with open(ARQUIVO_ESTADO, 'r') as f:
             try:
                 estado = json.load(f)
-                # Validação: Se o estado não tem a chave 'economy', é antigo.
                 if 'economy' not in estado.get('red', {}):
-                    return criar_estado_inicial() # Retorna um estado novo.
+                    return criar_estado_inicial()
                 return estado
             except (json.JSONDecodeError, KeyError):
-                return criar_estado_inicial() # Se corrompido, cria um novo.
+                return criar_estado_inicial()
     return criar_estado_inicial()
 
 def salvar_estado(estado):
@@ -90,11 +87,11 @@ else:
         st.markdown("<div style='background-color:#8B0000; padding:15px; border-radius:10px; border: 2px solid #FF4136; min-height: 500px;'>", unsafe_allow_html=True)
         st.subheader("Lado Vermelho 🔴")
         red_state = game_state['red']
-        is_my_turn = my_team == 'red'
+        is_my_team = my_team == 'red'
 
         with st.expander("Definir Aposta e Banco", expanded=not red_state['economy']['locked']):
             if not red_state['economy']['locked']:
-                if is_my_turn:
+                if is_my_team:
                     banco = st.number_input("Seu Banco Total", min_value=0, step=10, key="banco_red")
                     aposta = st.number_input("Sua Aposta Inicial", min_value=0, step=10, key="aposta_red")
                     if st.button("Confirmar Valores (Vermelho)"):
@@ -107,12 +104,14 @@ else:
                 else: st.info("Aguardando definição de valores.")
             else:
                 st.success("Valores confirmados!")
-                st.write(f"**Seu Banco:** {red_state['economy']['banco']} 🪙")
-                st.write(f"**Sua Aposta Atual:** {red_state['economy']['aposta']} 🪙")
+                # CORRIGIDO: Só mostra os valores para o jogador do time certo.
+                if is_my_team:
+                    st.write(f"**Seu Banco:** {red_state['economy']['banco']} 🪙")
+                    st.write(f"**Sua Aposta Atual:** {red_state['economy']['aposta']} 🪙")
         st.markdown("---")
 
         if not red_state['rolled_once']:
-            if is_my_turn:
+            if is_my_team:
                 if st.button("Rolar Dados (Vermelho)", disabled=not bets_locked):
                     red_state.update({"dice": [random.randint(1, 6) for _ in range(5)], "rolled_once": True})
                     salvar_estado(game_state)
@@ -120,22 +119,24 @@ else:
             else: st.info("Aguardando o Lado Vermelho rolar...")
         else:
             st.success("Dados Rolados!")
-            if is_my_turn and not st.session_state.get('view_my_dice'):
+            if is_my_team and not st.session_state.get('view_my_dice'):
                 if st.button("Ver meus dados 🔴"):
                     st.session_state.view_my_dice = True
                     st.rerun()
         
         pode_dobrar = red_state['economy']['aposta'] * 2 <= red_state['economy']['banco']
-        if is_my_turn and red_state['economy']['locked'] and not game_state['revealed_to_all']:
-            if st.button("Dobrar Aposta ⏫", disabled=not pode_dobrar, key="double_red"):
+        if is_my_team and red_state['economy']['locked'] and not game_state['revealed_to_all']:
+            # ATUALIZADO: Botão com novo estilo.
+            if st.button("DOBRAR APOSTA 💥", disabled=not pode_dobrar, key="double_red"):
                 red_state['economy']['aposta'] *= 2
                 salvar_estado(game_state)
                 st.rerun()
 
-        should_display_dice = game_state['revealed_to_all'] or (is_my_turn and st.session_state.get('view_my_dice'))
+        should_display_dice = game_state['revealed_to_all'] or (is_my_team and st.session_state.get('view_my_dice'))
         if red_state['rolled_once'] and should_display_dice:
             exibir_dados(red_state['dice'])
-            if is_my_turn and not red_state['rerolled']:
+            # ATUALIZADO: Lógica de re-rolagem só aparece se os dados ainda não foram revelados para todos.
+            if is_my_team and not red_state['rerolled'] and not game_state['revealed_to_all']:
                 st.markdown("---")
                 options_map = {f"Dado #{i+1} (valor: {d})": i for i, d in enumerate(red_state['dice'])}
                 dice_to_reroll = st.multiselect("Escolha até 2 dados para rolar novamente:", options_map.keys(), max_selections=2, key="reroll_red")
@@ -157,11 +158,11 @@ else:
         st.markdown("<div style='background-color:#00008B; padding:15px; border-radius:10px; border: 2px solid #0074D9; min-height: 500px;'>", unsafe_allow_html=True)
         st.subheader("Lado Azul 🔵")
         blue_state = game_state['blue']
-        is_my_turn = my_team == 'blue'
+        is_my_team = my_team == 'blue'
 
         with st.expander("Definir Aposta e Banco", expanded=not blue_state['economy']['locked']):
             if not blue_state['economy']['locked']:
-                if is_my_turn:
+                if is_my_team:
                     banco = st.number_input("Seu Banco Total", min_value=0, step=10, key="banco_blue")
                     aposta = st.number_input("Sua Aposta Inicial", min_value=0, step=10, key="aposta_blue")
                     if st.button("Confirmar Valores (Azul)"):
@@ -174,12 +175,14 @@ else:
                 else: st.info("Aguardando definição de valores.")
             else:
                 st.success("Valores confirmados!")
-                st.write(f"**Seu Banco:** {blue_state['economy']['banco']} 🪙")
-                st.write(f"**Sua Aposta Atual:** {blue_state['economy']['aposta']} 🪙")
+                # CORRIGIDO: Só mostra os valores para o jogador do time certo.
+                if is_my_team:
+                    st.write(f"**Seu Banco:** {blue_state['economy']['banco']} 🪙")
+                    st.write(f"**Sua Aposta Atual:** {blue_state['economy']['aposta']} 🪙")
         st.markdown("---")
 
         if not blue_state['rolled_once']:
-            if is_my_turn:
+            if is_my_team:
                 if st.button("Rolar Dados (Azul)", disabled=not bets_locked):
                     blue_state.update({"dice": [random.randint(1, 6) for _ in range(5)], "rolled_once": True})
                     salvar_estado(game_state)
@@ -187,22 +190,24 @@ else:
             else: st.info("Aguardando o Lado Azul rolar...")
         else:
             st.success("Dados Rolados!")
-            if is_my_turn and not st.session_state.get('view_my_dice'):
+            if is_my_team and not st.session_state.get('view_my_dice'):
                 if st.button("Ver meus dados 🔵"):
                     st.session_state.view_my_dice = True
                     st.rerun()
 
         pode_dobrar = blue_state['economy']['aposta'] * 2 <= blue_state['economy']['banco']
-        if is_my_turn and blue_state['economy']['locked'] and not game_state['revealed_to_all']:
-            if st.button("Dobrar Aposta ⏫", disabled=not pode_dobrar, key="double_blue"):
+        if is_my_team and blue_state['economy']['locked'] and not game_state['revealed_to_all']:
+            # ATUALIZADO: Botão com novo estilo.
+            if st.button("DOBRAR APOSTA 💥", disabled=not pode_dobrar, key="double_blue"):
                 blue_state['economy']['aposta'] *= 2
                 salvar_estado(game_state)
                 st.rerun()
         
-        should_display_dice = game_state['revealed_to_all'] or (is_my_turn and st.session_state.get('view_my_dice'))
+        should_display_dice = game_state['revealed_to_all'] or (is_my_team and st.session_state.get('view_my_dice'))
         if blue_state['rolled_once'] and should_display_dice:
             exibir_dados(blue_state['dice'])
-            if is_my_turn and not blue_state['rerolled']:
+            # ATUALIZADO: Lógica de re-rolagem só aparece se os dados ainda não foram revelados para todos.
+            if is_my_team and not blue_state['rerolled'] and not game_state['revealed_to_all']:
                 st.markdown("---")
                 options_map = {f"Dado #{i+1} (valor: {d})": i for i, d in enumerate(blue_state['dice'])}
                 dice_to_reroll = st.multiselect("Escolha até 2 dados para rolar novamente:", options_map.keys(), max_selections=2, key="reroll_blue")

@@ -105,4 +105,88 @@ else:
                     st.rerun()
 
         # 3. Exibição dos dados e opção de re-rolagem
-        should_display = game_state['revealed_to_
+        should_display = game_state['revealed_to_all'] or (my_team == 'red' and st.session_state.get('view_my_dice'))
+        if red_state['rolled_once'] and should_display:
+            exibir_dados(red_state['dice'])
+            
+            if my_team == 'red' and not red_state['rerolled']:
+                st.markdown("---")
+                options_map = {f"Dado #{i+1} (valor: {d})": i for i, d in enumerate(red_state['dice'])}
+                dice_to_reroll = st.multiselect("Escolha até 2 dados para rolar novamente:", options_map.keys(), max_selections=2, key="reroll_red")
+                if st.button("Rolar selecionados (Vermelho)"):
+                    indices = [options_map[label] for label in dice_to_reroll]
+                    for i in indices:
+                        red_state['dice'][i] = random.randint(1, 6)
+                    red_state['rerolled'] = True
+                    salvar_estado(game_state)
+                    st.rerun()
+            elif red_state['rerolled']:
+                 st.info("Re-rolagem já utilizada.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- LÓGICA DO LADO AZUL ---
+    with col2:
+        st.markdown("<div style='background-color:#00008B; padding:15px; border-radius:10px; border: 2px solid #0074D9; min-height: 350px;'>", unsafe_allow_html=True)
+        st.subheader("Lado Azul 🔵")
+
+        blue_state = game_state['blue']
+        
+        # 1. Botão de rolar dados
+        if not blue_state['rolled_once']:
+            if my_team == 'blue':
+                if st.button("Rolar Dados (Azul)"):
+                    blue_state['dice'] = [random.randint(1, 6) for _ in range(5)]
+                    blue_state['rolled_once'] = True
+                    salvar_estado(game_state)
+                    st.rerun()
+            else:
+                st.info("Aguardando o Lado Azul rolar...")
+        else:
+            st.success("Dados Rolados!")
+
+            # 2. Botão de ver os próprios dados
+            if my_team == 'blue' and not st.session_state.get('view_my_dice'):
+                if st.button("Ver meus dados 🔵"):
+                    st.session_state.view_my_dice = True
+                    st.rerun()
+
+        # 3. Exibição dos dados e opção de re-rolagem
+        should_display = game_state['revealed_to_all'] or (my_team == 'blue' and st.session_state.get('view_my_dice'))
+        if blue_state['rolled_once'] and should_display:
+            exibir_dados(blue_state['dice'])
+
+            if my_team == 'blue' and not blue_state['rerolled']:
+                st.markdown("---")
+                options_map = {f"Dado #{i+1} (valor: {d})": i for i, d in enumerate(blue_state['dice'])}
+                dice_to_reroll = st.multiselect("Escolha até 2 dados para rolar novamente:", options_map.keys(), max_selections=2, key="reroll_blue")
+                if st.button("Rolar selecionados (Azul)"):
+                    indices = [options_map[label] for label in dice_to_reroll]
+                    for i in indices:
+                        blue_state['dice'][i] = random.randint(1, 6)
+                    blue_state['rerolled'] = True
+                    salvar_estado(game_state)
+                    st.rerun()
+            elif blue_state['rerolled']:
+                st.info("Re-rolagem já utilizada.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # --- CONTROLES DO ANFITRIÃO ---
+    if my_team == 'red':
+        st.markdown("---")
+        st.subheader("Controles do Anfitrião")
+        
+        ambos_rolaram = game_state['red']['rolled_once'] and game_state['blue']['rolled_once']
+        if st.button("REVELAR DADOS PARA TODOS", disabled=not ambos_rolaram or game_state['revealed_to_all']):
+            game_state['revealed_to_all'] = True
+            salvar_estado(game_state)
+            st.rerun()
+
+        if st.button("Resetar Jogo para uma Nova Rodada"):
+            novo_estado = criar_estado_inicial()
+            salvar_estado(novo_estado)
+            # Limpa a sessão do anfitrião para mandá-lo para a tela de login
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
